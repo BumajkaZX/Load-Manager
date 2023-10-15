@@ -19,8 +19,10 @@ namespace LoadManager
         /// </summary>
         public static LoadManager Instance = default;
 
+        [SceneInfo]
         public string LoadScene = default;
 
+        [SceneInfo]
         public string MenuScene = default;
 
         /// <summary>
