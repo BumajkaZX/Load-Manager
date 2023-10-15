@@ -1,10 +1,10 @@
 # Load-Manager
 Load Manager
 
-Based on UniRx, supports conditions
+Can run on UniRx, ALLOW_UNIRX define
 
 TODO: 
-- Untie from UniRx, move to define
 - WebGL support(task to unitask)
 - Addressables support
 - Examples
+- Load progress

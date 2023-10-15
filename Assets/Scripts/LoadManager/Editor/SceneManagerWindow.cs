@@ -1,3 +1,5 @@
+#if UNITY_EDITOR
+
 namespace LoadManager.Editor
 {
     using System.Collections.Generic;
@@ -101,3 +103,5 @@ namespace LoadManager.Editor
         private void OnDisable() => EditorApplication.hierarchyChanged -= FindConditions;
     }
 }
+
+#endif

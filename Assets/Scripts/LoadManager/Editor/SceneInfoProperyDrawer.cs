@@ -1,3 +1,5 @@
+#if UNITY_EDITOR
+
 namespace LoadManager.Editor
 {
     using UnityEditor;
@@ -53,3 +55,5 @@ namespace LoadManager.Editor
         }
     }
 }
+
+#endif

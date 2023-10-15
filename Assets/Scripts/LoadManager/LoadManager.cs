@@ -2,12 +2,17 @@ namespace LoadManager
 {
     using UnityEngine;
     using UnityEngine.SceneManagement;
-    using UniRx;
     using System.Linq;
     using System;
     using System.Threading;
     using System.Threading.Tasks;
     using ApplicationStart;
+
+#if ALLOW_UNIRX
+
+    using UniRx;
+
+#endif
 
     /// <summary>
     /// Load manager with conditions
@@ -25,17 +30,32 @@ namespace LoadManager
         [SceneInfo]
         public string MenuScene = default;
 
+#if !ALLOW_UNIRX
+
+        public LoadType CurrentLoadType { get; private set; }
+
+        public Action<bool> IsAvailableLoad { get; private set; } = delegate { };
+
+        public bool LoadComplete { get; private set; } = false;
+
+#endif
+
+#if ALLOW_UNIRX
+
         /// <summary>
         /// On load complete
         /// </summary>
         [HideInInspector]
-        public ReactiveProperty<bool> LoadComplete = new ReactiveProperty<bool>();
+        public ReactiveProperty<bool> LoadComplete { get; private set; } = new ReactiveProperty<bool>();
 
         [HideInInspector]
-        public ReactiveProperty<bool> IsAvailableLoad = new ReactiveProperty<bool>(true);
+        public ReactiveProperty<bool> IsAvailableLoad { get; private set; } = new ReactiveProperty<bool>(true);
 
         [HideInInspector]
-        public ReactiveProperty<LoadType> CurrentLoadType = new ReactiveProperty<LoadType>();
+        public ReactiveProperty<LoadType> CurrentLoadType { get; private set; } = new ReactiveProperty<LoadType>();
+
+
+#endif
 
         [SerializeField, Min(1)]
         private float _defaultServiceTimeout = 5;
@@ -43,12 +63,19 @@ namespace LoadManager
         [SerializeField]
         private LoadType _loadType = LoadType.ThroughAfterLoad;
 
-        [SerializeField]
+        [SerializeField, Header("Additional")]
         private StartLogosController _logosController = default;
 
         private event Action _onSceneStart = delegate { };
 
         private CancellationTokenSource _tokenSource = new CancellationTokenSource();
+
+#if !ALLOW_UNIRX
+
+
+        private bool _isAvailableLoad = false;
+
+#endif
 
         private async void Awake()
         {
@@ -63,18 +90,131 @@ namespace LoadManager
                 DontDestroyOnLoad(gameObject);
             }
 
+#if !ALLOW_UNIRX
+
+            IsAvailableLoad += _ => _isAvailableLoad = _;
+
+#endif
+
             await InitScripts();
 
-            await _logosController.Init();
+            if (_logosController != null)
+            {
+                await _logosController.Init();
+            }
+
+            Debug.LogError("START");
 
             await LoadLevel(MenuScene, _loadType);
         }
+
+#if !ALLOW_UNIRX
+
+        /// <summary>
+        /// Invoke IsLoadAvailable true, if wait for action - true
+        /// </summary>
+        /// <param name="sceneName"></param>
+        /// <param name="loadType"></param>
+        /// <returns></returns>
+        public async Task LoadLevel(string sceneName, LoadType loadType)
+        {
+            try
+            {
+                _onSceneStart = delegate { };
+
+                CurrentLoadType = loadType;
+
+                if (loadType == LoadType.WaitAction || loadType == LoadType.ThroughAfterLoad)
+                {
+                    SceneManager.LoadSceneAsync(LoadScene, LoadSceneMode.Single);
+                }
+
+                AsyncOperation sceneLoad = SceneManager.LoadSceneAsync(sceneName, loadType == LoadType.WaitAction || loadType == LoadType.ThroughAfterLoad ? LoadSceneMode.Additive : LoadSceneMode.Single);
+
+                await WaitLoad(sceneLoad);
+
+                Debug.Log("Init load");
+
+                if (loadType == LoadType.Through)
+                {
+
+                    SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
+
+                    await InitScripts();
+
+                    LoadComplete = true;
+
+                    _onSceneStart();
+                }
+
+                if (loadType == LoadType.WaitAction)
+                {
+                    IsAvailableLoad(false);
+
+                    SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
+
+                    await InitScripts();
+
+                    LoadComplete = true;
+
+                    await WaitAction();
+
+                    AsyncOperation sceneUnload = SceneManager.UnloadSceneAsync(LoadScene);
+
+                    await WaitLoad(sceneUnload);
+
+                    _onSceneStart();
+
+                    Debug.Log("Scene Active");
+
+                }
+
+                if (loadType == LoadType.ThroughAfterLoad)
+                {
+                    SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
+
+                    await InitScripts();
+
+                    LoadComplete = true;
+
+                    AsyncOperation sceneUnload = SceneManager.UnloadSceneAsync(LoadScene);
+
+                    await WaitLoad(sceneUnload);
+
+                    _onSceneStart();
+
+                    Debug.Log("Scene Active");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.Log("Cancel load or quit app: error " + ex.Message);
+            }
+        }
+
+        private async Task WaitAction()
+        {
+            while (!_isAvailableLoad)
+            {
+                if (_tokenSource.Token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                Debug.LogError("Wait action");
+                await Task.Yield();
+            }
+        }
+
+#endif
+
+#if ALLOW_UNIRX
 
         /// <summary>
         /// Set IsLoadAvailable true, if wait for action - true
         /// </summary>
         /// <param name="sceneName"></param>
-        /// <param name="waitForTouch"></param>
+        /// <param name="loadType"></param>
         /// <returns></returns>
         public async Task LoadLevel(string sceneName, LoadType loadType)
         {
@@ -154,6 +294,22 @@ namespace LoadManager
             }
         }
 
+        private async Task WaitAction()
+        {
+            while (!IsAvailableLoad.Value)
+            {
+                if (_tokenSource.Token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                Debug.LogError("Wait action");
+                await Task.Yield();
+            }
+        }
+
+#endif
+
         private async Task WaitLoad(AsyncOperation sceneLoad)
         {
             if (_tokenSource.Token.IsCancellationRequested || sceneLoad == null)
@@ -171,17 +327,7 @@ namespace LoadManager
             }
         }
 
-        private async Task WaitAction()
-        {
-            while (!IsAvailableLoad.Value)
-            {
-                if (_tokenSource.Token.IsCancellationRequested)
-                {
-                    return;
-                }
-                await Task.Yield();
-            }
-        }
+  
 
         /// <summary>
         /// Doesn't reinit blocked conditions 
