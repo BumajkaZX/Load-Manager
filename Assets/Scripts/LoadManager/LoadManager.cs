@@ -103,8 +103,6 @@ namespace LoadManager
                 await _logosController.Init();
             }
 
-            Debug.LogError("START");
-
             await LoadLevel(MenuScene, _loadType);
         }
 
@@ -132,8 +130,6 @@ namespace LoadManager
                 AsyncOperation sceneLoad = SceneManager.LoadSceneAsync(sceneName, loadType == LoadType.WaitAction || loadType == LoadType.ThroughAfterLoad ? LoadSceneMode.Additive : LoadSceneMode.Single);
 
                 await WaitLoad(sceneLoad);
-
-                Debug.Log("Init load");
 
                 if (loadType == LoadType.Through)
                 {
@@ -165,8 +161,6 @@ namespace LoadManager
 
                     _onSceneStart();
 
-                    Debug.Log("Scene Active");
-
                 }
 
                 if (loadType == LoadType.ThroughAfterLoad)
@@ -182,8 +176,6 @@ namespace LoadManager
                     await WaitLoad(sceneUnload);
 
                     _onSceneStart();
-
-                    Debug.Log("Scene Active");
                 }
             }
             catch (Exception ex)
@@ -201,7 +193,6 @@ namespace LoadManager
                     return;
                 }
 
-                Debug.LogError("Wait action");
                 await Task.Yield();
             }
         }
@@ -233,8 +224,6 @@ namespace LoadManager
 
                 CurrentLoadType.SetValueAndForceNotify(loadType);
 
-                Debug.Log("Init load");
-
                 if (loadType == LoadType.Through)
                 {
 
@@ -265,8 +254,6 @@ namespace LoadManager
 
                     _onSceneStart();
 
-                    Debug.Log("Scene Active");
-
                 }
 
                 if(loadType == LoadType.ThroughAfterLoad)
@@ -283,7 +270,6 @@ namespace LoadManager
 
                     _onSceneStart();
 
-                    Debug.Log("Scene Active");
                 }
 
                 LoadComplete.Value = false;
@@ -303,7 +289,6 @@ namespace LoadManager
                     return;
                 }
 
-                Debug.LogError("Wait action");
                 await Task.Yield();
             }
         }
@@ -322,7 +307,7 @@ namespace LoadManager
                 {
                     return;
                 }
-                Debug.LogWarning(sceneLoad.progress);
+
                 await Task.Yield();
             }
         }
@@ -352,7 +337,6 @@ namespace LoadManager
                     continue;
                 }
 
-                Debug.Log("Init load " + condition.Name);
                 try
                 {
                     Task<Action> task = condition.Initialization(tokenSourceConditions.Token);
@@ -363,7 +347,6 @@ namespace LoadManager
                     }
                     else
                     {
-                        Debug.Log($"Complete {condition.Name}");
                         if (task.Result != null)
                         {
                             _onSceneStart += task.Result;

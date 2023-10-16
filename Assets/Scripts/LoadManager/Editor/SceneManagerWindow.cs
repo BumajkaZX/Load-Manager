@@ -25,17 +25,16 @@ namespace LoadManager.Editor
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField(sceneName, GUILayout.MaxWidth(120));
                 bool isOpenScene = EditorSceneManager.GetSceneByName(sceneName).name != null;
+                var color = new GUIStyle(GUI.skin.button);
+
                 if (EditorSceneManager.GetActiveScene().name == sceneName && EditorSceneManager.sceneCount == 1)
                 {
+                    color.normal.textColor = Color.black;
                     GUI.backgroundColor = Color.grey;
                 }
-                if (GUILayout.Button("Open", GUILayout.MaxWidth(120)))
+                if (GUILayout.Button("Open", color,  GUILayout.MaxWidth(120)))
                 {
-                    if (EditorSceneManager.GetActiveScene().name == sceneName)
-                    {
-                        Debug.Log("Don't do this please -___-");
-                    }
-                    else
+                    if (EditorSceneManager.GetActiveScene().name != sceneName || EditorSceneManager.sceneCount > 1)
                     {
                         EditorSceneManager.SaveOpenScenes();
                         EditorSceneManager.OpenScene(path);
@@ -44,12 +43,17 @@ namespace LoadManager.Editor
 
                 GUI.backgroundColor = Color.white;
 
-                var color = new GUIStyle(GUI.skin.button);
+          
 
                 if (isOpenScene && EditorSceneManager.sceneCount == 1)
                 {
                     color.normal.textColor = Color.black;
                     GUI.backgroundColor = Color.grey;
+                }
+
+                if(isOpenScene && EditorSceneManager.sceneCount > 1)
+                {
+                    GUI.backgroundColor = Color.gray;
                 }
 
                 if (GUILayout.Button(isOpenScene ? "Close Additive" : "Open Additive", color, GUILayout.MaxWidth(120)))

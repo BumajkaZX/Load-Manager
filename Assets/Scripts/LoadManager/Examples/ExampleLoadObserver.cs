@@ -16,7 +16,7 @@ namespace LoadManager.Examples
 
 #endif
 
-    public class LoadObserver : MonoBehaviour
+    public class ExampleLoadObserver : MonoBehaviour
     {
         [SerializeField]
         private Transform _loadImageTransform = default;
@@ -42,17 +42,17 @@ namespace LoadManager.Examples
 
 #if ALLOW_UNIRX
 
-            manager.LoadComplete.Where(_ => _).Subscribe(_ => 
+            _manager.LoadComplete.Where(_ => _).Subscribe(_ => 
             {
                 _loadImageTransform.gameObject.SetActive(false);
 
-                if (manager.CurrentLoadType.Value == LoadType.WaitAction)
+                if (_manager.CurrentLoadType.Value == LoadType.WaitAction)
                 {
                     _button.gameObject.SetActive(true);
 
                     _button.OnClickAsObservable().Subscribe(_ =>
                     {
-                        manager.IsAvailableLoad.Value = true;
+                        _manager.IsAvailableLoad.Value = true;
                         _loadDis.Clear();
                     }).AddTo(_loadDis);
                 }
