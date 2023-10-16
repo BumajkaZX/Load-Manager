@@ -180,7 +180,7 @@ namespace LoadManager
             }
             catch (Exception ex)
             {
-                Debug.Log("Cancel load or quit app: error " + ex.Message);
+                Log("Cancel load or quit app: error " + ex.Message);
             }
         }
 
@@ -276,7 +276,7 @@ namespace LoadManager
             }
             catch(Exception ex)
             {
-                Debug.Log("Cancel load or quit app: error " + ex.Message);
+                Log("Cancel load or quit app: error " + ex.Message);
             }
         }
 
@@ -312,7 +312,7 @@ namespace LoadManager
             }
         }
 
-  
+
 
         /// <summary>
         /// Doesn't reinit blocked conditions 
@@ -343,25 +343,37 @@ namespace LoadManager
                     var completedTask = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(condition.ServiceTimeout == null ? _defaultServiceTimeout : condition.ServiceTimeout.Value), tokenSourceConditions.Token));
                     if (completedTask != task)
                     {
-                        Debug.LogWarning("block " + condition.Name);
+                        Log("Block " + condition.Name);
                     }
                     else
                     {
+                        Log("Complete " + condition.Name);
+
                         if (task.Result != null)
                         {
                             _onSceneStart += task.Result;
                         }
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    Debug.LogError($"Error with {condition.Name}: {ex.Message}");
+                    Log($"Error with {condition.Name}: {ex.Message}");
                 }
 
                 await Task.Yield();
             }
 
             tokenSourceConditions.Cancel();
+        }
+        private void Log(string message)
+        {
+
+#if LOAD_DEBUG
+
+            Debug.LogWarning(message);
+
+#endif
+
         }
 
         private void OnDestroy() => _tokenSource.Cancel();
