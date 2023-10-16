@@ -1,0 +1,21 @@
+{
+  "name": "com.bumajkazx.load-manager",
+  "version": "1.0.0",
+  "displayName": "Load Manager",
+  "description": "Allows you to improve loading using script conditions, avoiding the default Awake&Start",
+  "unity": "2019.3",
+  "documentationUrl": "https://github.com/BumajkaZX/Load-Manager/tree/main",
+  "changelogUrl": "https://github.com/BumajkaZX/Load-Manager/commits/main",
+  "licensesUrl": "https://github.com/BumajkaZX/Load-Manager/blob/main/LICENSE",
+  "samples":[
+{
+  "displayName": "Examples",
+  "path": "Examples~"
+}
+],
+  "author": {
+    "name": "BumajkaZX",
+    "discord": "bumajka",
+    "git": "https://github.com/BumajkaZX"
+  }
+}
