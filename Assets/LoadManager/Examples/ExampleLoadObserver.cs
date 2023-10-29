@@ -3,18 +3,8 @@ namespace LoadManager.Examples
  
     using UnityEngine;
     using UnityEngine.UI;
-
-#if ALLOW_UNIRX
-
-    using UniRx;
-
-#endif
-
-#if !ALLOW_UNIRX
-
     using System.Collections;
-
-#endif
+    using System;
 
     public class ExampleLoadObserver : MonoBehaviour
     {
@@ -24,14 +14,10 @@ namespace LoadManager.Examples
         [SerializeField]
         private Button _button = default;
 
+        [SerializeField]
+        private Slider _slider = default;
+
         private LoadManager _manager = default;
-
-
-#if ALLOW_UNIRX
-
-        private CompositeDisposable _loadDis = new CompositeDisposable();
-
-#endif
 
         private void OnEnable()
         {
@@ -40,37 +26,14 @@ namespace LoadManager.Examples
             _loadImageTransform.gameObject.SetActive(true);
             _button.gameObject.SetActive(false);
 
-#if ALLOW_UNIRX
-
-            _manager.LoadComplete.Where(_ => _).Subscribe(_ => 
-            {
-                _loadImageTransform.gameObject.SetActive(false);
-
-                if (_manager.CurrentLoadType.Value == LoadType.WaitAction)
-                {
-                    _button.gameObject.SetActive(true);
-
-                    _button.OnClickAsObservable().Subscribe(_ =>
-                    {
-                        _manager.IsAvailableLoad.Value = true;
-                        _loadDis.Clear();
-                    }).AddTo(_loadDis);
-                }
-            }).AddTo(_loadDis);
-
-#endif
-
-#if !ALLOW_UNIRX
+            _manager.LoadProgress += OnChangeProgress;
 
             StartCoroutine(WaitLoad());
-
-#endif
-
         }
 
-#if !ALLOW_UNIRX
+        private void OnChangeProgress(float progress) => _slider.value = progress;
 
-        private void OnClick() => _manager.IsAvailableLoad.Invoke(true);
+        private void OnClick() => _manager.IsAvailableLoad(true);
 
         private IEnumerator WaitLoad()
         {
@@ -88,26 +51,12 @@ namespace LoadManager.Examples
             }
         }
 
-#endif
-
         private void OnDestroy()
         {
-
-#if ALLOW_UNIRX
-
-            _loadDis.Clear();
-
-#endif
-
-#if !ALLOW_UNIRX
-
             if (_manager.CurrentLoadType == LoadType.WaitAction)
             {
                 _button.onClick.RemoveListener(OnClick);
             }
-
-#endif
-
         }
     }
 }

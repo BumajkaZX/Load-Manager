@@ -6,13 +6,6 @@ namespace LoadManager.ApplicationStart
     using System.Threading.Tasks;
     using UnityEngine;
 
-#if ALLOW_UNIRX
-
-    using UniRx;
-    using System;
-
-#endif
-
     public class ExampleStartLogos : StartLogosController
     {
         [SerializeField, Range(1, 10)]
@@ -22,6 +15,7 @@ namespace LoadManager.ApplicationStart
         private float _fadeTime = 0.2f;
 
         private List<LogosOrder> _canvases = default;
+
 
         private void Awake()
         {
@@ -40,16 +34,6 @@ namespace LoadManager.ApplicationStart
                 canvas.CanvasGroup.alpha = 0;
                 canvas.gameObject.SetActive(true);
 
-#if ALLOW_UNIRX
-
-                await Observable.FromCoroutine(_ => Fade(canvas.CanvasGroup, false)).GetAwaiter();
-                await Observable.Timer(TimeSpan.FromSeconds(_logoTime)).GetAwaiter();
-                await Observable.FromCoroutine(_ => Fade(canvas.CanvasGroup, true)).GetAwaiter();
-
-#endif
-
-#if !ALLOW_UNIRX
-
                 StartCoroutine(Fade(canvas.CanvasGroup, false));
                 await Task.Delay((int)(1000 * _fadeTime));
 
@@ -57,8 +41,6 @@ namespace LoadManager.ApplicationStart
 
                 StartCoroutine(Fade(canvas.CanvasGroup, true));
                 await Task.Delay((int)(1000 * _fadeTime));
-
-#endif
 
                 canvas.gameObject.SetActive(false);
             }

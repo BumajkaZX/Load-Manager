@@ -7,18 +7,15 @@ namespace LoadManager
     using System.Threading;
     using System.Threading.Tasks;
     using ApplicationStart;
-
-#if ALLOW_UNIRX
-
-    using UniRx;
-
-#endif
+    using System.Collections;
 
     /// <summary>
     /// Load manager with conditions
     /// </summary>
     public class LoadManager : MonoBehaviour
     {
+        private const float MAX_SCENE_LOAD_PROGRESS = 0.25f;
+
         /// <summary>
         /// Instance
         /// </summary>
@@ -30,32 +27,13 @@ namespace LoadManager
         [SceneInfo]
         public string MenuScene = default;
 
-#if !ALLOW_UNIRX
-
         public LoadType CurrentLoadType { get; private set; }
 
         public Action<bool> IsAvailableLoad { get; private set; } = delegate { };
 
+        public event Action<float> LoadProgress = delegate { };
+
         public bool LoadComplete { get; private set; } = false;
-
-#endif
-
-#if ALLOW_UNIRX
-
-        /// <summary>
-        /// On load complete
-        /// </summary>
-        [HideInInspector]
-        public ReactiveProperty<bool> LoadComplete { get; private set; } = new ReactiveProperty<bool>();
-
-        [HideInInspector]
-        public ReactiveProperty<bool> IsAvailableLoad { get; private set; } = new ReactiveProperty<bool>(true);
-
-        [HideInInspector]
-        public ReactiveProperty<LoadType> CurrentLoadType { get; private set; } = new ReactiveProperty<LoadType>();
-
-
-#endif
 
         [SerializeField, Min(1)]
         private float _defaultServiceTimeout = 5;
@@ -70,12 +48,9 @@ namespace LoadManager
 
         private CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
-#if !ALLOW_UNIRX
-
-
         private bool _isAvailableLoad = false;
 
-#endif
+        private float _loadProgress = default;
 
         private async void Awake()
         {
@@ -90,23 +65,17 @@ namespace LoadManager
                 DontDestroyOnLoad(gameObject);
             }
 
-#if !ALLOW_UNIRX
-
             IsAvailableLoad += _ => _isAvailableLoad = _;
-
-#endif
-
-            await InitScripts();
-
+ 
             if (_logosController != null)
             {
                 await _logosController.Init();
             }
 
+            await InitScripts();
+
             await LoadLevel(MenuScene, _loadType);
         }
-
-#if !ALLOW_UNIRX
 
         /// <summary>
         /// Invoke IsLoadAvailable true, if wait for action - true
@@ -122,6 +91,12 @@ namespace LoadManager
 
                 CurrentLoadType = loadType;
 
+                LoadProgress(0);
+
+                _loadProgress = 0;
+
+                StartCoroutine(LoadLerp());
+
                 if (loadType == LoadType.WaitAction || loadType == LoadType.ThroughAfterLoad)
                 {
                     SceneManager.LoadSceneAsync(LoadScene, LoadSceneMode.Single);
@@ -131,57 +106,79 @@ namespace LoadManager
 
                 await WaitLoad(sceneLoad);
 
-                if (loadType == LoadType.Through)
+                switch (loadType)
                 {
+                    case LoadType.Through:
 
-                    SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
+                        await LoadThrough(sceneName);
 
-                    await InitScripts();
+                        break;
 
-                    LoadComplete = true;
+                    case LoadType.WaitAction:
 
-                    _onSceneStart();
+                        await LoadWaitAction(sceneName);
+
+                        break;
+
+                    case LoadType.ThroughAfterLoad:
+
+                        await LoadThroughAfterLoad(sceneName);
+
+                        break;
                 }
 
-                if (loadType == LoadType.WaitAction)
-                {
-                    IsAvailableLoad(false);
+                StopAllCoroutines();
 
-                    SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
-
-                    await InitScripts();
-
-                    LoadComplete = true;
-
-                    await WaitAction();
-
-                    AsyncOperation sceneUnload = SceneManager.UnloadSceneAsync(LoadScene);
-
-                    await WaitLoad(sceneUnload);
-
-                    _onSceneStart();
-
-                }
-
-                if (loadType == LoadType.ThroughAfterLoad)
-                {
-                    SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
-
-                    await InitScripts();
-
-                    LoadComplete = true;
-
-                    AsyncOperation sceneUnload = SceneManager.UnloadSceneAsync(LoadScene);
-
-                    await WaitLoad(sceneUnload);
-
-                    _onSceneStart();
-                }
             }
             catch (Exception ex)
             {
                 Log("Cancel load or quit app: error " + ex.Message);
             }
+        }
+
+        private async Task LoadThrough(string sceneName)
+        {
+            SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
+
+            await InitScripts();
+
+            LoadComplete = true;
+
+            _onSceneStart();
+        }
+
+        private async Task LoadWaitAction(string sceneName)
+        {
+            IsAvailableLoad(false);
+
+            SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
+
+            await InitScripts();
+
+            LoadComplete = true;
+
+            await WaitAction();
+
+            AsyncOperation sceneUnload = SceneManager.UnloadSceneAsync(LoadScene);
+
+            await WaitLoad(sceneUnload);
+
+            _onSceneStart();
+        }
+
+        private async Task LoadThroughAfterLoad(string sceneName)
+        {
+            SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
+
+            await InitScripts();
+
+            LoadComplete = true;
+
+            AsyncOperation sceneUnload = SceneManager.UnloadSceneAsync(LoadScene);
+
+            await WaitLoad(sceneUnload);
+
+            _onSceneStart();
         }
 
         private async Task WaitAction()
@@ -197,104 +194,6 @@ namespace LoadManager
             }
         }
 
-#endif
-
-#if ALLOW_UNIRX
-
-        /// <summary>
-        /// Set IsLoadAvailable true, if wait for action - true
-        /// </summary>
-        /// <param name="sceneName"></param>
-        /// <param name="loadType"></param>
-        /// <returns></returns>
-        public async Task LoadLevel(string sceneName, LoadType loadType)
-        {
-            try
-            {
-                _onSceneStart = delegate { };
-
-                if (loadType == LoadType.WaitAction || loadType == LoadType.ThroughAfterLoad)
-                {
-                    SceneManager.LoadSceneAsync(LoadScene, LoadSceneMode.Single);
-                }
-
-                AsyncOperation sceneLoad = SceneManager.LoadSceneAsync(sceneName, loadType == LoadType.WaitAction || loadType == LoadType.ThroughAfterLoad ? LoadSceneMode.Additive : LoadSceneMode.Single);
-
-                await WaitLoad(sceneLoad);
-
-                CurrentLoadType.SetValueAndForceNotify(loadType);
-
-                if (loadType == LoadType.Through)
-                {
-
-                    SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
-
-                    await InitScripts();
-
-                    LoadComplete.SetValueAndForceNotify(true);
-
-                    _onSceneStart();
-                }
-
-                if (loadType == LoadType.WaitAction)
-                {
-                    IsAvailableLoad.Value = false;
-
-                    SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
-
-                    await InitScripts();
-
-                    LoadComplete.SetValueAndForceNotify(true);
-
-                    await WaitAction();
-
-                    AsyncOperation sceneUnload = SceneManager.UnloadSceneAsync(LoadScene);
-
-                    await WaitLoad(sceneUnload);
-
-                    _onSceneStart();
-
-                }
-
-                if(loadType == LoadType.ThroughAfterLoad)
-                {
-                    SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
-
-                    await InitScripts();
-
-                    LoadComplete.SetValueAndForceNotify(true);
-
-                    AsyncOperation sceneUnload = SceneManager.UnloadSceneAsync(LoadScene);
-
-                    await WaitLoad(sceneUnload);
-
-                    _onSceneStart();
-
-                }
-
-                LoadComplete.Value = false;
-            }
-            catch(Exception ex)
-            {
-                Log("Cancel load or quit app: error " + ex.Message);
-            }
-        }
-
-        private async Task WaitAction()
-        {
-            while (!IsAvailableLoad.Value)
-            {
-                if (_tokenSource.Token.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                await Task.Yield();
-            }
-        }
-
-#endif
-
         private async Task WaitLoad(AsyncOperation sceneLoad)
         {
             if (_tokenSource.Token.IsCancellationRequested || sceneLoad == null)
@@ -308,11 +207,13 @@ namespace LoadManager
                     return;
                 }
 
+                float currentProgress = Mathf.Lerp(0, MAX_SCENE_LOAD_PROGRESS, sceneLoad.progress);
+
+                _loadProgress = currentProgress;
+
                 await Task.Yield();
             }
         }
-
-
 
         /// <summary>
         /// Doesn't reinit blocked conditions 
@@ -354,6 +255,8 @@ namespace LoadManager
                             _onSceneStart += task.Result;
                         }
                     }
+
+                    _loadProgress = Mathf.Lerp(MAX_SCENE_LOAD_PROGRESS, 1, (listconditions.IndexOf(condition) + 1) / (float)listconditions.Count);
                 }
                 catch (Exception ex)
                 {
@@ -365,6 +268,24 @@ namespace LoadManager
 
             tokenSourceConditions.Cancel();
         }
+
+        //TODO: Create different animation types
+        private IEnumerator LoadLerp()
+        {
+            float baseProgress = 0;
+
+            while (baseProgress < 1)
+            {
+                float progress = Mathf.Lerp(baseProgress, _loadProgress, _loadProgress == 1 ? Time.deltaTime * 10 : Time.deltaTime); //10 - random number to increase animation speed on completed load
+
+                baseProgress = progress;
+
+                yield return null;
+
+                LoadProgress(progress);
+            }
+        }
+
         private void Log(string message)
         {
 

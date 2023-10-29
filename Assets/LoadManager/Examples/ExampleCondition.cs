@@ -17,18 +17,20 @@ namespace LoadManager
 
         private bool _isInited = false;
 
-        public Task<Action> Initialization(CancellationToken token)
+        public async Task<Action> Initialization(CancellationToken token)
         {
-            Debug.LogError("Example inited");
+            Debug.Log("Example inited");
+
+            await Task.Yield();
 
             _isInited = true;
 
-            return Task.FromResult<Action>(OnSceneStart);
+            return OnSceneStart;
         }
 
         private void OnSceneStart()
         {
-            Debug.LogError("Example start");
+            Debug.Log("Example start");
         }
     }
 }
